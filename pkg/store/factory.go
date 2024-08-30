@@ -3,7 +3,7 @@ package store
 import (
 	"fmt"
 
-	ctrl "sigs.k8s.io/controller-runtime"
+	"github.com/magicsong/kidecar/api"
 )
 
 type StorageFactory interface {
@@ -12,14 +12,16 @@ type StorageFactory interface {
 
 type defaultStorageFactory struct {
 	storageMap map[StorageType]Storage
-	manager    ctrl.Manager
+	manager    api.SidecarManager
 }
 
-func NewStorageFactory() StorageFactory {
+func NewStorageFactory(mgr api.SidecarManager) StorageFactory {
 	f := &defaultStorageFactory{
 		storageMap: make(map[StorageType]Storage),
 	}
-	f.storageMap[StorageTypePodAnnotation] = &PodAnnotationStore{}
+	f.storageMap[StorageTypeInKube] = &inKube{}
+	f.storageMap[StorageTypeHTTPMetric] = &promMetric{}
+	f.manager = mgr
 	return f
 }
 

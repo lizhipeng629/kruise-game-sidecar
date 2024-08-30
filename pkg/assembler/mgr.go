@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/magicsong/okg-sidecar/api"
-	"github.com/magicsong/okg-sidecar/pkg/manager"
-	"github.com/magicsong/okg-sidecar/pkg/utils"
+	"github.com/magicsong/kidecar/api"
+	"github.com/magicsong/kidecar/pkg/plugins"
+	"github.com/magicsong/kidecar/pkg/utils"
 	"gopkg.in/yaml.v3"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -26,7 +26,7 @@ type sidecar struct {
 	version          string
 	pluginStatuses   map[string]*api.PluginStatus
 	*api.SidecarConfig
-	*manager.SidecarManager
+	api.SidecarManager
 	log logr.Logger
 }
 
@@ -53,7 +53,7 @@ func loadConfig(configPath string) (*api.SidecarConfig, error) {
 }
 
 // SetupWithManager implements api.Sidecar.
-func (s *sidecar) SetupWithManager(mgr *manager.SidecarManager) error {
+func (s *sidecar) SetupWithManager(mgr api.SidecarManager) error {
 	s.SidecarManager = mgr
 	return nil
 }
@@ -66,29 +66,47 @@ func NewSidecar() api.Sidecar {
 	}
 }
 
+func (s *sidecar) InitPlugins() error {
+	for _, p := range s.SidecarConfig.Plugins {
+		if err := s.AddPlugin(p.Name, p.Config); err != nil {
+			return fmt.Errorf("failed to add built in plugin %s,err:%w", p.Name, err)
+		}
+	}
+	return nil
+}
+
 // AddPlugin implements api.Sidecar.
-func (s *sidecar) AddPlugin(plugin api.Plugin) error {
+func (s *sidecar) AddPlugin(name string, config interface{}) error {
 	//lock and add
 	s.lock.Lock()
 	defer s.lock.Unlock()
-	if plugin.Name() == "" {
-		return fmt.Errorf("plugin name is empty")
+	plugin, ok := plugins.PluginRegistry[name]
+	if !ok {
+		return fmt.Errorf("failed to find plugin %s", name)
 	}
 	pluginConfig := plugin.GetConfigType()
-	pluginOption, ok := s.SidecarConfig.Plugins[plugin.Name()]
-	if !ok {
-		s.log.Info("plugin not found in config, skip", "plugin", plugin.Name())
-		return nil
-	}
-	err := utils.ConvertJsonObjectToStruct(pluginOption.Config, pluginConfig)
+	err := utils.ConvertJsonObjectToStruct(config, pluginConfig)
 	if err != nil {
 		return fmt.Errorf("convert plugin config failed,err:%w", err)
 	}
-	if err := plugin.Init(pluginConfig); err != nil {
+	if err := plugin.Init(pluginConfig, s.SidecarManager); err != nil {
 		return fmt.Errorf("init plugin %s failed", plugin.Name())
 	}
 	s.plugins[plugin.Name()] = plugin
 	return nil
+}
+
+func (s *sidecar) getPluginFromConfig(name string) (api.PluginConfig, bool) {
+	var pluginOption api.PluginConfig
+	var ok bool
+	for _, option := range s.SidecarConfig.Plugins {
+		if option.Name == name {
+			pluginOption = option
+			ok = true
+			break
+		}
+	}
+	return pluginOption, ok
 }
 
 // GetVersion implements api.Sidecar.
@@ -106,8 +124,8 @@ func (s *sidecar) PluginStatus(pluginName string) (*api.PluginStatus, error) {
 }
 
 func (s *sidecar) updatePluginStatus(pluginName string) (*api.PluginStatus, error) {
-	s.log.Info("start polling plugin status", "plugin", pluginName)
-	defer s.log.Info("end polling plugin status", "plugin", pluginName)
+	s.log.V(3).Info("start polling plugin status", "plugin", pluginName)
+	defer s.log.V(3).Info("end polling plugin status", "plugin", pluginName)
 	plugin, ok := s.plugins[pluginName]
 	if !ok {
 		return nil, fmt.Errorf("plugin %s not found", pluginName)
@@ -142,11 +160,9 @@ func (s *sidecar) Start(ctx context.Context) error {
 	// start all plugins
 	s.log.Info("start sidecar")
 	errorCh := make(chan error)
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, time.Second*20)
-	defer cancel()
-	s.startAllPlugins(ctxWithTimeout, errorCh)
+	s.startAllPlugins(ctx, errorCh)
 	for _, plugin := range s.plugins {
-		s.pollPluginStatus(plugin.Name(), time.Second*5)
+		s.pollPluginStatus(plugin.Name(), time.Second*30)
 		time.Sleep(time.Second)
 	}
 	if s.isStartWebServer {
@@ -183,7 +199,7 @@ func (s *sidecar) pollPluginStatus(pluginName string, interval time.Duration) {
 }
 
 func (s *sidecar) isPluginEnabled(pluginName string) bool {
-	pluginOption, ok := s.SidecarConfig.Plugins[pluginName]
+	pluginOption, ok := s.getPluginFromConfig(pluginName)
 	if !ok {
 		return true
 	}

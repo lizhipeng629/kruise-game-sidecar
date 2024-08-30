@@ -1,8 +1,9 @@
 package plugins
 
 import (
-	"github.com/magicsong/okg-sidecar/api"
-	httpprobe "github.com/magicsong/okg-sidecar/pkg/plugins/http_probe"
+	"github.com/magicsong/kidecar/api"
+	"github.com/magicsong/kidecar/pkg/plugins/hot_update"
+	httpprobe "github.com/magicsong/kidecar/pkg/plugins/http_probe"
 )
 
 var PluginRegistry = make(map[string]api.Plugin)
@@ -16,4 +17,5 @@ func RegisterPlugin(plugin api.Plugin) {
 
 func init() {
 	RegisterPlugin(httpprobe.NewPlugin())
+	RegisterPlugin(hot_update.NewPlugin())
 }

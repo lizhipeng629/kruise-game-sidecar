@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/magicsong/okg-sidecar/api"
-	"github.com/magicsong/okg-sidecar/pkg/store"
+	"github.com/magicsong/kidecar/api"
+	"github.com/magicsong/kidecar/pkg/store"
 	"k8s.io/client-go/util/retry"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -31,16 +31,20 @@ func (h *httpProber) GetConfigType() interface{} {
 }
 
 // Init implements api.Plugin.
-func (h *httpProber) Init(config interface{}) error {
+func (h *httpProber) Init(config interface{}, mgr api.SidecarManager) error {
 	probeConfig, ok := config.(*HttpProbeConfig)
 	if !ok {
 		return fmt.Errorf("invalid config type")
 	}
 	h.config = *probeConfig
 	h.status = &HttpProbeStatus{}
+	h.StorageFactory = store.NewStorageFactory(mgr)
 	h.log = logf.Log.WithName("http_probe")
 	if h.config.ProbeIntervalSeconds <= 0 {
 		h.config.ProbeIntervalSeconds = 5
+	}
+	if h.config.StartDelaySeconds <= 0 {
+		h.config.StartDelaySeconds = 30
 	}
 	return nil
 }
@@ -52,6 +56,18 @@ func (h *httpProber) Name() string {
 
 // Start implements api.Plugin.
 func (h *httpProber) Start(ctx context.Context, errorCh chan<- error) {
+	// 延迟启动
+	if h.config.StartDelaySeconds > 0 {
+		h.log.Info("Delaying start", "seconds", h.config.StartDelaySeconds)
+		select {
+		case <-time.After(time.Duration(h.config.StartDelaySeconds) * time.Second):
+			// 延迟时间结束，继续启动
+		case <-ctx.Done():
+			// 上下文被取消，退出
+			h.status.setStatus("Stopped")
+			return
+		}
+	}
 	h.log.Info("Starting http probe plugin")
 	reloadConfig := make(chan struct{})
 	if len(h.config.Endpoints) == 0 {
@@ -62,7 +78,7 @@ func (h *httpProber) Start(ctx context.Context, errorCh chan<- error) {
 	var wg sync.WaitGroup
 	for {
 		// 为当前的一轮 goroutine 创建一个可以取消的上下文
-		ctxWithCancel, cancel := context.WithCancel(ctx)
+		ctxWithCancel, cancel := context.WithCancel(context.Background())
 		h.status.setStatus("Running")
 		// 启动所有的 probeAndStore goroutine
 		for _, ep := range h.config.Endpoints {
@@ -102,9 +118,11 @@ func (h *httpProber) probeAndStore(ctx context.Context, _ chan<- error, config E
 		select {
 		case <-ctx.Done():
 			// 上下文被取消，安全退出
+			h.log.Info("Context cancelled, exiting", "endpoint", config.URL)
 			return
 		default:
 			// 正常的探测和存储操作
+			h.log.Info("Probing", "endpoint", config.URL)
 			err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return true }, func() error {
 				executor := NewExecutor(10, h.StorageFactory)
 				err := executor.Probe(config)

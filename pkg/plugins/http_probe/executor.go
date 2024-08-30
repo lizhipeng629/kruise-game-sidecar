@@ -2,12 +2,13 @@ package httpprobe
 
 import (
 	"fmt"
+	"github.com/tidwall/gjson"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/magicsong/okg-sidecar/pkg/extractor"
-	"github.com/magicsong/okg-sidecar/pkg/store"
+	"github.com/magicsong/kidecar/pkg/store"
+	"github.com/magicsong/kidecar/pkg/template"
 )
 
 // Executor holds the HTTP client and provides methods for probing
@@ -45,15 +46,14 @@ func (p *Executor) Probe(config EndpointConfig) error {
 	}
 	defer resp.Body.Close()
 
-	// Check expected status code
-	if resp.StatusCode != config.ExpectedStatusCode {
-		return fmt.Errorf("unexpected status code: got %v, expected %v", resp.StatusCode, config.ExpectedStatusCode)
-	}
-
 	// Read response body
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("failed to read response body: %v", err)
+	}
+	// Check expected status code
+	if resp.StatusCode != config.ExpectedStatusCode {
+		return fmt.Errorf("unexpected status code: got %v, expected %v, body: %s", resp.StatusCode, config.ExpectedStatusCode, string(body))
 	}
 
 	// Extract data
@@ -62,7 +62,7 @@ func (p *Executor) Probe(config EndpointConfig) error {
 		return fmt.Errorf("failed to extract data: %v", err)
 	}
 	// Store data
-	if err := p.storeData(data, &config.StorageConfig); err != nil {
+	if err := p.storeData(data.(string), &config.StorageConfig); err != nil {
 		return fmt.Errorf("failed to store data: %v", err)
 	}
 	return nil
@@ -70,11 +70,26 @@ func (p *Executor) Probe(config EndpointConfig) error {
 
 func (p *Executor) extractData(data []byte, extractorConfig *store.JSONPathConfig) (interface{}, error) {
 	if extractorConfig != nil {
-		return extractor.GetDataFromJsonText(string(data), extractorConfig.JSONPath)
+		return getDataFromJsonText(string(data), extractorConfig.JSONPath)
 	}
-	return data, nil
+	return string(data), nil
 }
 
-func (p *Executor) storeData(data interface{}, storeConfig *store.StorageConfig) error {
+func (p *Executor) storeData(data string, storeConfig *store.StorageConfig) error {
+	err := template.ParseConfig(storeConfig)
+	if err != nil {
+		return fmt.Errorf("failed to parse config: %v", err)
+	}
 	return storeConfig.StoreData(p.StorageFactory, data)
+}
+
+func getDataFromJsonText(json, path string) (interface{}, error) {
+	if !gjson.Valid(json) {
+		return nil, fmt.Errorf("invalid json")
+	}
+	value := gjson.Get(json, path)
+	if !value.Exists() {
+		return nil, fmt.Errorf("path not found")
+	}
+	return value.Value(), nil
 }

@@ -3,13 +3,14 @@ package api
 import (
 	"context"
 
-	"github.com/magicsong/okg-sidecar/pkg/manager"
+	"k8s.io/client-go/kubernetes"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-// Plugin 定义所有插件必须实现的方法
+// Plugin ...
 type Plugin interface {
 	Name() string
-	Init(config interface{}) error
+	Init(config interface{}, mgr SidecarManager) error
 	Start(ctx context.Context, errCh chan<- error)
 	Stop(ctx context.Context) error
 	Version() string
@@ -18,39 +19,48 @@ type Plugin interface {
 	GetConfigType() interface{}
 }
 
-// PluginConfig 表示插件的配置
+// PluginConfig ...
 type PluginConfig struct {
 	Name      string      `json:"name"`
 	Config    interface{} `json:"config"`
 	BootOrder int         `json:"bootOrder"`
 }
 
-// SidecarConfig 表示 Sidecar 的配置
+// SidecarConfig ...
 type SidecarConfig struct {
-	Plugins           map[string]PluginConfig `json:"plugins"`           // 启动的插件及其配置
-	RestartPolicy     string                  `json:"restartPolicy"`     // 重启策略
-	Resources         map[string]string       `json:"resources"`         // Sidecar 所需的资源
-	SidecarStartOrder string                  `json:"sidecarStartOrder"` // Sidecar 的启动顺序，是在主容器之后还是之前
+	Plugins           []PluginConfig    `json:"plugins"`           // plugins and  configurations
+	RestartPolicy     string            `json:"restartPolicy"`     // Restart policy
+	Resources         map[string]string `json:"resources"`         // The resources required by Sidecar
+	SidecarStartOrder string            `json:"sidecarStartOrder"` // The startup sequence of Sidecar, is it after or before the main container
 }
 
-// PluginStatus 表示插件的状态
+// PluginStatus =
 type PluginStatus struct {
 	Name        string   `json:"name"`
 	Version     string   `json:"version"`
 	Running     bool     `json:"running"`
-	LastChecked string   `json:"lastChecked"` // 上一次健康检查时间，格式为 YYYY-MM-DD HH:MM:SS
-	Health      string   `json:"health"`      // 健康状态，例如 "Healthy", "Unhealthy"
-	Infos       []string `json:"infos"`       // 插件的其他信息
+	LastChecked string   `json:"lastChecked"` //  YYYY-MM-DD HH:MM:SS
+	Health      string   `json:"health"`      //  "Healthy", "Unhealthy"
+	Infos       []string `json:"infos"`
 }
 
-// Sidecar 定义Sidecar对外的接口
+// Sidecar ...
 type Sidecar interface {
-	AddPlugin(plugin Plugin) error
+	InitPlugins() error
 	RemovePlugin(pluginName string) error
 	GetVersion() string
 	PluginStatus(pluginName string) (*PluginStatus, error)
 	Start(ctx context.Context) error
 	Stop(ctx context.Context) error
-	SetupWithManager(mgr *manager.SidecarManager) error
+	SetupWithManager(mgr SidecarManager) error
 	LoadConfig(path string) error
+}
+
+type SidecarManager interface {
+	ctrl.Manager
+	DBManager
+	kubernetes.Interface
+}
+
+type DBManager interface {
 }

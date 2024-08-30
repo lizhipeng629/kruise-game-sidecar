@@ -1,6 +1,6 @@
 package httpprobe
 
-import "github.com/magicsong/okg-sidecar/pkg/store"
+import "github.com/magicsong/kidecar/pkg/store"
 
 type EndpointConfig struct {
 	URL                string                `json:"url"`                // 目标 URL
@@ -13,6 +13,7 @@ type EndpointConfig struct {
 }
 
 type HttpProbeConfig struct {
-	Endpoints []EndpointConfig `json:"endpoints,omitempty"` // 多个端点的配置
-	ProbeIntervalSeconds int `json:"probeIntervalSeconds"` // 探测间隔时间（秒）
+	StartDelaySeconds    int              `json:"startDelaySeconds"`    // 延迟启动时间（秒）
+	Endpoints            []EndpointConfig `json:"endpoints,omitempty"`  // 多个端点的配置
+	ProbeIntervalSeconds int              `json:"probeIntervalSeconds"` // 探测间隔时间（秒）
 }
