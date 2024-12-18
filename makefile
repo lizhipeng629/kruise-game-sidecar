@@ -209,3 +209,6 @@ run-kidecar: fmt vet
 build-kidecar: fmt vet
 	$(CONTAINER_TOOL) build -t ${KIDECAR_IMG} . -f sidecar.Dockerfile
 	$(CONTAINER_TOOL) push ${KIDECAR_IMG}
+
+pb:
+	protoc --go_out=. --go-grpc_out=. api/proto/*.proto

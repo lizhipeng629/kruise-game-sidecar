@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package github.com.kidecar;
+
+import "google/protobuf/empty.proto";
+
+option go_package = "./api";
+
+// 定义 SDK 服务
+service SDK {
+  // 基础管理
+  rpc Ready(google.protobuf.Empty) returns (google.protobuf.Empty);
+  rpc Shutdown(google.protobuf.Empty) returns (google.protobuf.Empty);
+
+  // 标签和注解管理
+  rpc SetLabel(SetLabelRequest) returns (google.protobuf.Empty);
+  rpc GetLabel(GetLabelRequest) returns (GetLabelResponse);
+
+  rpc SetAnnotation(SetAnnotationRequest) returns (google.protobuf.Empty);
+  rpc GetAnnotation(GetAnnotationRequest) returns (GetAnnotationResponse);
+
+  // 资源分配与预留
+  rpc Allocate(AllocateRequest) returns (google.protobuf.Empty);
+  rpc Reserve(ReserveRequest) returns (google.protobuf.Empty);
+
+  // 容量管理
+  rpc SetCapacity(SetCapacityRequest) returns (google.protobuf.Empty);
+
+  // 网络状态管理
+  rpc GetNetworkState(GetNetworkStateRequest) returns (GetNetworkStateResponse);
+
+  // 优先级管理
+  rpc SetPriority(SetPriorityRequest) returns (google.protobuf.Empty);
+  rpc GetPriority(GetPriorityRequest) returns (GetPriorityResponse);
+}
+
+// 标签和注解管理
+message SetLabelRequest {
+  map<string, string> labels = 1;
+}
+message GetLabelRequest {}  // 可以扩展其他筛选条件
+message GetLabelResponse {
+  map<string, string> labels = 1;
+}
+
+message SetAnnotationRequest {
+  map<string, string> annotations = 1;
+}
+message GetAnnotationRequest {}  // 可以扩展其他筛选条件
+message GetAnnotationResponse {
+  map<string, string> annotations = 1;
+}
+
+// 资源分配与预留
+message AllocateRequest {
+  string resource_id = 1;
+}
+message ReserveRequest {
+  string reservation_id = 1;
+  int32 duration = 2; // 以秒为单位
+}
+
+// 容量管理
+message SetCapacityRequest {
+  int32 capacity = 1;
+}
+
+// 网络状态管理
+message GetNetworkStateRequest {}  // 预留扩展
+message GetNetworkStateResponse {
+  string state = 1; // 示例：idle, active, busy
+}
+
+// 优先级管理
+message SetPriorityRequest {
+  int32 priority = 1; // 数值型优先级，例如 0-100
+}
+message GetPriorityRequest {}  // 预留扩展
+message GetPriorityResponse {
+  int32 priority = 1;
+}
