@@ -14,11 +14,15 @@ spec:
     injectKidecar: true
   kidecar:
     plugins:
+    - name: grpc
+      bootOrder: 2
+      config:
+        port: 12345
     - name: kubectl-proxy
       binary:
-       path: /bin/kubectl
+       path: /usr/local/bin/kubectl
        version: "1.0.0"
-       args: ["proxy", "--port=8080"]
+       args: ["proxy", "--port=8081"]
        env: ["ENV_VAR=value"]
        permissions: "700"
        description: "This is kubectl proxy plugin"

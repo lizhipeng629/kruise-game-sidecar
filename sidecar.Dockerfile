@@ -20,10 +20,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o main cmd/sidecar/main.go
 
 # 使用轻量级的Alpine Linux作为运行时镜像
 FROM alpine:3.15
-
 # 安装必要的依赖项
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates curl
 
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" && \
+    install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl && \
+    rm kubectl
 # 设置工作目录
 WORKDIR /app
 

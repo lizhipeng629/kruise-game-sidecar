@@ -1,6 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= 113745426946.dkr.ecr.us-east-1.amazonaws.com/xuetaotest/kidecar-manager:v1
-KIDECAR_IMG ?= 113745426946.dkr.ecr.us-east-1.amazonaws.com/xuetaotest/kidecar:v1.1
+KIDECAR_IMG ?= 113745426946.dkr.ecr.us-east-1.amazonaws.com/xuetaotest/kidecar:v1.2
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.31.0
@@ -139,6 +139,7 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 .PHONY: deploy
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	sh hack/replace_env.sh ${KIDECAR_IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
 .PHONY: undeploy
@@ -207,7 +208,7 @@ dev: generate manifests docker-push deploy
 run-kidecar: fmt vet
 	go run cmd/sidecar/main.go --config=./config.yaml
 build-kidecar: fmt vet
-	$(CONTAINER_TOOL) build -t ${KIDECAR_IMG} . -f sidecar.Dockerfile
+	$(CONTAINER_TOOL) build -t ${KIDECAR_IMG} . -f sidecar.Dockerfile --platform=linux/amd64
 	$(CONTAINER_TOOL) push ${KIDECAR_IMG}
 
 pb:
