@@ -3483,8 +3483,8 @@ spec:
         - /manager
         env:
         - name: KIDECAR_IMAGE
-          value: 113745426946.dkr.ecr.us-east-1.amazonaws.com/xuetaotest/kidecar:v1.2
-        image: 113745426946.dkr.ecr.us-east-1.amazonaws.com/xuetaotest/kidecar-manager:v1
+          value: cr-helm-test-cn-beijing.cr.volces.com/volcforgame/kidecar:v1.8
+        image: cr-helm-test-cn-beijing.cr.volces.com/volcforgame/kidecar-manager:v0.1
         livenessProbe:
           httpGet:
             path: /healthz
