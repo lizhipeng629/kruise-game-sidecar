@@ -19,10 +19,10 @@ package httpprobe
 import "sync"
 
 type HttpProbeStatus struct {
-	status           string     // 记录当前状态
-	err              error      // 记录最后一次发生的错误
-	activeGoroutines int        // 当前活跃的 goroutine 数量
-	mu               sync.Mutex // 用于保护状态字段的并发访问
+	status           string
+	err              error
+	activeGoroutines int
+	mu               sync.Mutex
 }
 
 func (h *HttpProbeStatus) setStatus(status string) {

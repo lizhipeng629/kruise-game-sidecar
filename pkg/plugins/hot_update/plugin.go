@@ -48,7 +48,7 @@ type HotUpdateConfig struct {
 	StorageConfig store.StorageConfig `json:"storageConfig,omitempty"`
 }
 
-// Signal 发送信号量到主容器
+// Signal ...
 type Signal struct {
 	SignalName  string `json:"signalName"`
 	ProcessName string `json:"processName"`
@@ -84,7 +84,6 @@ func (h *hotUpdate) Init(config interface{}, mgr api.SidecarManager) error {
 func (h *hotUpdate) Start(ctx context.Context, errCh chan<- error) {
 	h.log.Info("start hot-update plugin")
 
-	// 根据pod的anno，设置最新的热更新文件
 	err := h.SetHotUpdateConfigWhenStart()
 	if err != nil {
 		h.log.Error(err, "Failed to set hot-update config when start")
@@ -93,7 +92,6 @@ func (h *hotUpdate) Start(ctx context.Context, errCh chan<- error) {
 		return
 	}
 
-	// 启动一个http服务
 	http.HandleFunc("/hot-update", h.HotUpdateHandle)
 
 	err = http.ListenAndServe(":5000", nil)

@@ -72,14 +72,14 @@ func (h *httpProber) Name() string {
 
 // Start implements api.Plugin.
 func (h *httpProber) Start(ctx context.Context, errorCh chan<- error) {
-	// 延迟启动
+
 	if h.config.StartDelaySeconds > 0 {
 		h.log.Info("Delaying start", "seconds", h.config.StartDelaySeconds)
 		select {
 		case <-time.After(time.Duration(h.config.StartDelaySeconds) * time.Second):
-			// 延迟时间结束，继续启动
+
 		case <-ctx.Done():
-			// 上下文被取消，退出
+
 			h.status.setStatus("Stopped")
 			return
 		}
@@ -93,10 +93,10 @@ func (h *httpProber) Start(ctx context.Context, errorCh chan<- error) {
 	}
 	var wg sync.WaitGroup
 	for {
-		// 为当前的一轮 goroutine 创建一个可以取消的上下文
+
 		ctxWithCancel, cancel := context.WithCancel(context.Background())
 		h.status.setStatus("Running")
-		// 启动所有的 probeAndStore goroutine
+
 		for _, ep := range h.config.Endpoints {
 			wg.Add(1)
 			h.status.incrementGoroutines()
@@ -109,23 +109,15 @@ func (h *httpProber) Start(ctx context.Context, errorCh chan<- error) {
 
 		select {
 		case <-reloadConfig:
-			// 收到配置重载信号，取消当前所有的 goroutine
 			fmt.Println("Received reload signal, restarting goroutines...")
 			cancel()
-			// 等待所有的 goroutine 退出
 			wg.Wait()
-
-			// 这里可以进行必要的配置更新操作
-			// h.config = newConfig
-
 		case <-ctx.Done():
-			// 上下文被取消，退出
 			h.status.setStatus("Stopped")
 			cancel()
 			return
 		}
 		wg.Wait()
-		// 重启 goroutine，在下一个循环中启动新的 goroutine
 	}
 }
 
@@ -133,11 +125,9 @@ func (h *httpProber) probeAndStore(ctx context.Context, _ chan<- error, config E
 	for {
 		select {
 		case <-ctx.Done():
-			// 上下文被取消，安全退出
 			h.log.Info("Context cancelled, exiting", "endpoint", config.URL)
 			return
 		default:
-			// 正常的探测和存储操作
 			h.log.Info("Probing", "endpoint", config.URL)
 			err := retry.OnError(retry.DefaultBackoff, func(err error) bool { return true }, func() error {
 				executor := NewExecutor(10, h.StorageFactory)
